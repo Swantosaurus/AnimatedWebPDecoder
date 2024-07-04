@@ -5,11 +5,12 @@ plugins {
 }
 
 android {
-    compileSdk 30
+    compileSdk 34
+    namespace 'com.github.skgmn.animatedwebpdecoder'
 
     defaultConfig {
         minSdk 16
-        targetSdk 30
+        targetSdk 34
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
@@ -29,7 +30,7 @@ android {
     externalNativeBuild {
         cmake {
             path "src/main/cpp/CMakeLists.txt"
-            version "3.10.2"
+            version "3.18.1"
         }
     }
     compileOptions {
@@ -43,29 +44,29 @@ android {
 }
 
 dependencies {
-    implementation "io.coil-kt:coil:1.3.2"
+    implementation "io.coil-kt:coil:2.6.0"
     implementation "androidx.vectordrawable:vectordrawable-animated:1.1.0"
 }
 
-afterEvaluate {
-    publishing {
-        repositories {
-            maven {
-                url "https://maven.pkg.github.com/$GITHUB_ID/AnimatedWebPDecoder"
-                credentials {
-                    username GITHUB_ID
-                    password GITHUB_PACKAGES_TOKEN
-                }
-            }
-        }
-        publications {
-            release(MavenPublication) {
-                from components.release
-
-                groupId = 'com.github.skgmn'
-                artifactId = 'animatedwebpdecoder'
-                version = '0.1.2'
-            }
-        }
-    }
-}
+//afterEvaluate {
+//    publishing {
+//        repositories {
+//            maven {
+//                url "https://maven.pkg.github.com/$GITHUB_ID/AnimatedWebPDecoder"
+//                credentials {
+//                    username GITHUB_ID
+//                    password GITHUB_PACKAGES_TOKEN
+//                }
+//            }
+//        }
+//        publications {
+//            release(MavenPublication) {
+//                from components.release
+//
+//                groupId = 'com.github.skgmn'
+//                artifactId = 'animatedwebpdecoder'
+//                version = '0.1.2'
+//            }
+//        }
+//    }
+//}

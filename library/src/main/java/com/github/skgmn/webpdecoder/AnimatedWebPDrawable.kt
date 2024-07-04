@@ -1,16 +1,24 @@
 package com.github.skgmn.webpdecoder
 
-import android.graphics.*
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.ColorFilter
+import android.graphics.Paint
+import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
 import android.os.SystemClock
-import androidx.annotation.GuardedBy
 import androidx.vectordrawable.graphics.drawable.Animatable2Compat
-import coil.bitmap.BitmapPool
 import com.github.skgmn.webpdecoder.libwebp.LibWebPAnimatedDecoder
-import kotlinx.coroutines.*
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.channels.ClosedSendChannelException
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 @OptIn(
     DelicateCoroutinesApi::class,
@@ -18,8 +26,10 @@ import kotlinx.coroutines.channels.ClosedSendChannelException
 )
 internal class AnimatedWebPDrawable(
     private val decoder: LibWebPAnimatedDecoder,
-    @GuardedBy("bitmapPool")
-    private val bitmapPool: BitmapPool,
+    //private
+    //@GuardedBy("bitmapPool")
+    //private val bitmapPool: BitmapPool,
+    firstBitmap : Bitmap,
     firstFrame: LibWebPAnimatedDecoder.DecodeFrameResult? = null
 ) : Drawable(), Animatable2Compat {
     private val paint by lazy(LazyThreadSafetyMode.NONE) { Paint(Paint.FILTER_BITMAP_FLAG) }
@@ -42,9 +52,13 @@ internal class AnimatedWebPDrawable(
                     // unless this spam log may be appeared:
                     //   Called reconfigure on a bitmap that is in use! This may cause graphical corruption!
                     scheduleSelf({
-                        synchronized(bitmapPool) {
-                            bitmapPool.put(it)
+                        Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).also { bitmap ->
+                            Canvas(bitmap).drawBitmap(it, 0f, 0f, null)
                         }
+                        //https://github.com/coil-kt/coil/discussions/1186
+//                        synchronized(bitmapPool) {
+//                            bitmapPool.put(it)
+//                        }
                     }, 0)
                 }
                 field = value
@@ -62,7 +76,10 @@ internal class AnimatedWebPDrawable(
         invalidateSelf()
     }
 
+    private var lastCanvas : Canvas? = null
+
     override fun draw(canvas: Canvas) {
+        lastCanvas = canvas
         val time = SystemClock.uptimeMillis()
         if (queueTime >= 0) {
             val currentDelay = time - queueTime
@@ -136,6 +153,8 @@ internal class AnimatedWebPDrawable(
         return decoder.height
     }
 
+    private object Lock
+
     @OptIn(DelicateCoroutinesApi::class)
     override fun start() {
         if (isRunning) return
@@ -146,7 +165,12 @@ internal class AnimatedWebPDrawable(
         val channel = Channel<LibWebPAnimatedDecoder.DecodeFrameResult>(
             capacity = 1,
             onUndeliveredElement = {
-                synchronized(bitmapPool) { bitmapPool.put(it.bitmap) }
+                synchronized(Lock) {
+                    currentDecodingResult?.bitmap?.let {
+                        lastCanvas?.drawBitmap(it, null, bounds, paint)
+                    }
+                }
+                //synchronized(bitmapPool) { bitmapPool.put(it.bitmap) }
             }
         ).also {
             decodeChannel = it
@@ -159,18 +183,22 @@ internal class AnimatedWebPDrawable(
             while (isActive && (loopCount == 0 || i < loopCount)) {
                 decoder.reset()
                 while (isActive && decoder.hasNextFrame()) {
-                    val reuseBitmap = synchronized(bitmapPool) {
-                        bitmapPool.getDirtyOrNull(
-                            decoder.width,
-                            decoder.height,
-                            Bitmap.Config.ARGB_8888
-                        )
-                    }
-                    val result = decoder.decodeNextFrame(reuseBitmap)
-                    if (result == null || result.bitmap !== reuseBitmap) {
-                        reuseBitmap?.let {
-                            synchronized(bitmapPool) { bitmapPool.put(it) }
+                    val bitmap = Bitmap.createBitmap(decoder.width, decoder.height, Bitmap.Config.ARGB_8888)
+//                        synchronized(bitmapPool) {
+//                        bitmapPool.getDirtyOrNull(
+//                            decoder.width,
+//                            decoder.height,
+//                            Bitmap.Config.ARGB_8888
+//                        )
+//                    }
+                    val result = decoder.decodeNextFrame(bitmap)
+                    if (result == null || result.bitmap !== bitmap ) {
+                        result?.let {
+                            lastCanvas?.drawBitmap(bitmap, null, bounds, paint)
                         }
+//                        reuseBitmap?.let {
+//                            synchronized(bitmapPool) { bitmapPool.put(it) }
+//                        }
                     }
                     if (!isActive) {
                         break
@@ -181,8 +209,8 @@ internal class AnimatedWebPDrawable(
                     try {
                         channel.send(result)
                     } catch (e: ClosedSendChannelException) {
-                        synchronized(bitmapPool) {
-                            bitmapPool.put(result.bitmap)
+                        synchronized(Lock) {
+                            lastCanvas?.drawBitmap(result.bitmap, null, bounds, paint)
                         }
                         break
                     }
