@@ -1,3 +1,5 @@
+
+## Added support for coil 2.6.0 in this version 
 # Introduction
 
 An implementation of [Coil](https://github.com/coil-kt/coil)'s `Decoder` to support animated WebP on Android of which sdk version is less than 28. It depends on _libwebp_ as a native library.
