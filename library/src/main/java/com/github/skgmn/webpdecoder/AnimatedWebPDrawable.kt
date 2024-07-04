@@ -163,7 +163,6 @@ internal class AnimatedWebPDrawable(
                         lastCanvas?.drawBitmap(it, null, bounds, paint)
                     }
                 }
-                //synchronized(bitmapPool) { bitmapPool.put(it.bitmap) }
             }
         ).also {
             decodeChannel = it
