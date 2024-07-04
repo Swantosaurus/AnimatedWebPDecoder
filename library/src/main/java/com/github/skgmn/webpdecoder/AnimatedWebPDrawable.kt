@@ -26,9 +26,6 @@ import kotlinx.coroutines.launch
 )
 internal class AnimatedWebPDrawable(
     private val decoder: LibWebPAnimatedDecoder,
-    //private
-    //@GuardedBy("bitmapPool")
-    //private val bitmapPool: BitmapPool,
     firstBitmap : Bitmap,
     firstFrame: LibWebPAnimatedDecoder.DecodeFrameResult? = null
 ) : Drawable(), Animatable2Compat {
@@ -55,10 +52,6 @@ internal class AnimatedWebPDrawable(
                         Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).also { bitmap ->
                             Canvas(bitmap).drawBitmap(it, 0f, 0f, null)
                         }
-                        //https://github.com/coil-kt/coil/discussions/1186
-//                        synchronized(bitmapPool) {
-//                            bitmapPool.put(it)
-//                        }
                     }, 0)
                 }
                 field = value
@@ -184,21 +177,12 @@ internal class AnimatedWebPDrawable(
                 decoder.reset()
                 while (isActive && decoder.hasNextFrame()) {
                     val bitmap = Bitmap.createBitmap(decoder.width, decoder.height, Bitmap.Config.ARGB_8888)
-//                        synchronized(bitmapPool) {
-//                        bitmapPool.getDirtyOrNull(
-//                            decoder.width,
-//                            decoder.height,
-//                            Bitmap.Config.ARGB_8888
-//                        )
-//                    }
+
                     val result = decoder.decodeNextFrame(bitmap)
                     if (result == null || result.bitmap !== bitmap ) {
                         result?.let {
                             lastCanvas?.drawBitmap(bitmap, null, bounds, paint)
                         }
-//                        reuseBitmap?.let {
-//                            synchronized(bitmapPool) { bitmapPool.put(it) }
-//                        }
                     }
                     if (!isActive) {
                         break
