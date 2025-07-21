@@ -8,6 +8,9 @@ android {
     compileSdk 34
     namespace 'com.github.skgmn.animatedwebpdecoder'
 
+    // v28+ needed to compile libraries with 16 KB page sizes support
+    ndkVersion '29.0.13599879'
+
     defaultConfig {
         minSdk 21
         targetSdk 34
