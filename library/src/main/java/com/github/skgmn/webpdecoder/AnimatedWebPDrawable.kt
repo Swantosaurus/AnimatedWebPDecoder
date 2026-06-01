@@ -69,10 +69,7 @@ internal class AnimatedWebPDrawable(
         invalidateSelf()
     }
 
-    private var lastCanvas : Canvas? = null
-
     override fun draw(canvas: Canvas) {
-        lastCanvas = canvas
         val time = SystemClock.uptimeMillis()
         if (queueTime >= 0) {
             val currentDelay = time - queueTime
@@ -146,8 +143,6 @@ internal class AnimatedWebPDrawable(
         return decoder.height
     }
 
-    private object Lock
-
     @OptIn(DelicateCoroutinesApi::class)
     override fun start() {
         if (isRunning) return
@@ -156,14 +151,7 @@ internal class AnimatedWebPDrawable(
         callbacks.forEach { it.onAnimationStart(this) }
 
         val channel = Channel<LibWebPAnimatedDecoder.DecodeFrameResult>(
-            capacity = 1,
-            onUndeliveredElement = {
-                synchronized(Lock) {
-                    currentDecodingResult?.bitmap?.let {
-                        lastCanvas?.drawBitmap(it, null, bounds, paint)
-                    }
-                }
-            }
+            capacity = 1
         ).also {
             decodeChannel = it
         }
@@ -178,11 +166,6 @@ internal class AnimatedWebPDrawable(
                     val bitmap = Bitmap.createBitmap(decoder.width, decoder.height, Bitmap.Config.ARGB_8888)
 
                     val result = decoder.decodeNextFrame(bitmap)
-                    if (result == null || result.bitmap !== bitmap ) {
-                        result?.let {
-                            lastCanvas?.drawBitmap(bitmap, null, bounds, paint)
-                        }
-                    }
                     if (!isActive) {
                         break
                     }
@@ -192,9 +175,6 @@ internal class AnimatedWebPDrawable(
                     try {
                         channel.send(result)
                     } catch (e: ClosedSendChannelException) {
-                        synchronized(Lock) {
-                            lastCanvas?.drawBitmap(result.bitmap, null, bounds, paint)
-                        }
                         break
                     }
                 }
